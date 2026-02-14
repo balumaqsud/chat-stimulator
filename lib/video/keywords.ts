@@ -43,7 +43,15 @@ export const VIDEO_KEYWORDS: Record<ClipId, readonly string[]> = {
     "the job position",
     "the job",
   ],
-  fallback: [], // plays when user response was not understandable
+  fallback: [
+    "blah",
+    "la la",
+    "meow",
+    "virtual person",
+    "asdf",
+    "gibberish",
+    "nonsense",
+  ], // plays when user response was not understandable
   general_response: [
     "how are you",
     "what's up",

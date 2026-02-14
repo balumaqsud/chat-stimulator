@@ -55,12 +55,9 @@ export interface UseConversationControllerReturn {
   actions: {
     start: () => void;
     stop: () => void;
-    /** Start conversation without mic (typed input only). Use when permission denied or unsupported. */
-    startWithTypedFallback: () => void;
   };
   dispatchVideoEnded: () => void;
   onClipReady: (clipId: ClipId) => void;
-  dispatchSpeechResult: (text: string) => void;
   setTranscript: (text: string) => void;
   setError: (error: string | null) => void;
   setLastKeywordMatch: (match: string | null) => void;
@@ -149,18 +146,6 @@ export function useConversationController(): UseConversationControllerReturn {
     dispatchEvent({ type: "STOP_CLICK" });
   }, [dispatchEvent]);
 
-  const startWithTypedFallback = useCallback(() => {
-    dispatchState({ type: "SET_ERROR", payload: null });
-    dispatchEvent({ type: "START_CLICK" });
-  }, [dispatchEvent]);
-
-  const dispatchSpeechResult = useCallback(
-    (text: string) => {
-      dispatchEvent({ type: "SPEECH_RESULT", text });
-    },
-    [dispatchEvent]
-  );
-
   const setTranscript = useCallback((text: string) => {
     dispatchState({ type: "SET_TRANSCRIPT", payload: text });
   }, []);
@@ -190,7 +175,6 @@ export function useConversationController(): UseConversationControllerReturn {
     setTranscript,
     setError,
     setLastKeywordMatch,
-    dispatchSpeechResult,
     dispatchEvent,
     dispatchState,
   });
@@ -198,7 +182,6 @@ export function useConversationController(): UseConversationControllerReturn {
     setTranscript,
     setError,
     setLastKeywordMatch,
-    dispatchSpeechResult,
     dispatchEvent,
     dispatchState,
   };
@@ -472,10 +455,9 @@ export function useConversationController(): UseConversationControllerReturn {
 
   return {
     uiState,
-    actions: { start, stop, startWithTypedFallback },
+    actions: { start, stop },
     dispatchVideoEnded,
     onClipReady,
-    dispatchSpeechResult,
     setTranscript,
     setError,
     setLastKeywordMatch,

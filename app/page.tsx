@@ -8,14 +8,8 @@ import { useConversationController } from "@/hooks/useConversationController";
 import { getClipSrc } from "@/lib/video/clips";
 
 export default function Home() {
-  const {
-    uiState,
-    actions,
-    dispatchVideoEnded,
-    onClipReady,
-    setError,
-    dispatchSpeechResult,
-  } = useConversationController();
+  const { uiState, actions, dispatchVideoEnded, onClipReady, setError } =
+    useConversationController();
 
   const handleVideoLoadError = (clip: ClipId, _err: unknown) => {
     if (uiState.state === "IDLE") {
@@ -24,8 +18,6 @@ export default function Home() {
     }
     setError(`Missing or failed to load video: ${getClipSrc(clip)}`);
   };
-
-  const showTypedFallback = uiState.permissionDenied || uiState.speechSupported === false;
 
   return (
     <div className="min-h-screen flex flex-col bg-zinc-950 text-zinc-100">
@@ -76,11 +68,12 @@ export default function Home() {
           uiState={uiState}
           onStart={actions.start}
           onStop={actions.stop}
-          onStartWithTypedFallback={showTypedFallback ? actions.startWithTypedFallback : undefined}
-          onTypedSubmit={showTypedFallback ? dispatchSpeechResult : undefined}
         />
 
-        <DebugPanel uiState={uiState} onSimulateVideoEnded={dispatchVideoEnded} />
+        <DebugPanel
+          uiState={uiState}
+          onSimulateVideoEnded={dispatchVideoEnded}
+        />
       </main>
 
       <footer className="p-4 border-t border-zinc-800 text-center text-zinc-500 text-sm">

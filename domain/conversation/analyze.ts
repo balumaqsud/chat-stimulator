@@ -56,8 +56,11 @@ export function analyzeUserInput(rawText: string): AnalysisResult {
   if (matchesPhrases(normalized, VIDEO_KEYWORDS.general_response)) {
     return { clip: "general_response", intent: "general" };
   }
+  if (matchesPhrases(normalized, VIDEO_KEYWORDS.fallback)) {
+    return { clip: "fallback", intent: "fallback" };
+  }
 
-  return { clip: "general_response", intent: "general" };
+  return { clip: "fallback", intent: "fallback" };
 }
 
 /**

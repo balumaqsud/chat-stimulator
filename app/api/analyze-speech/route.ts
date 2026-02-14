@@ -60,11 +60,11 @@ Decision rules (prefer the most specific match; use fallback only when nothing e
 - weather: User asks or talks about weather, forecast, temperature, rain, sun, etc. Choose for any weather-related message.
 - greeting: User is greeting or saying hello. Use for hello, hi, hey, good morning, etc.
 - general_response: Small talk, how are you, or general chat that does not fit goodbye, job, weather, or greeting.
-- fallback: Only when the message is unclear, unintelligible, off-topic, or not understandable. Do not use for normal greetings or vague but understandable chat.
+- fallback: Use when the message is unclear, unintelligible, off-topic, repetitive filler, random nonsense, or not understandable. This includes: "Blah blah", "La la la", "meow meow", "Virtual person Blah blah meow meow", "asdfghjkl", repeated nonsense, gibberish, or any input that does not express a clear intent. Do not use for normal greetings or vague but understandable chat.
 
 Priority: goodbye > easter_egg > weather > greeting > general_response. Use fallback only when nothing else fits.
 
-Examples: "Bye, see you tomorrow" -> goodbye. "What's the weather like?" -> weather. "I'd like to apply for the job" -> easter_egg. "Hello!" or "Hi there!" -> greeting. "How are you?" -> general_response. "Blah blah" or gibberish -> fallback.
+Examples: "Bye, see you tomorrow" -> goodbye. "What's the weather like?" -> weather. "I'd like to apply for the job" -> easter_egg. "Hello!" or "Hi there!" -> greeting. "How are you?" -> general_response. "Blah blah blah", "La la la", "Virtual person Blah blah meow meow", "asdfghjkl", repeated nonsense -> fallback.
 
 Available clips:
 ${clipList}

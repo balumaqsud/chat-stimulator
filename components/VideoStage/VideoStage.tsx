@@ -102,7 +102,7 @@ export function VideoStage({
         isSwitchingRef.current = false;
       }
     },
-    [onLoadError, onClipReady, visible, isLooping]
+    [onLoadError, onClipReady, visible, isLooping],
   );
 
   useEffect(() => {
@@ -139,20 +139,27 @@ export function VideoStage({
     active.src = src;
     active.loop = isLooping;
     displayedClipRef.current = currentClip;
-    active.play().then(() => onClipReady?.(currentClip)).catch(() => {});
+    active
+      .play()
+      .then(() => onClipReady?.(currentClip))
+      .catch(() => {});
   }, []);
 
   return (
     <div className="relative w-full h-full min-h-[300px] bg-black overflow-hidden rounded-lg">
       <video
         ref={activeRef}
-        className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-200 ${visible === "active" ? "opacity-100" : "opacity-0"}`}
+        className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-200 ${
+          visible === "active" ? "opacity-100" : "opacity-0"
+        }`}
         playsInline
         preload="auto"
       />
       <video
         ref={standbyRef}
-        className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-200 ${visible === "standby" ? "opacity-100" : "opacity-0"}`}
+        className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-200 ${
+          visible === "standby" ? "opacity-100" : "opacity-0"
+        }`}
         playsInline
         preload="auto"
       />
