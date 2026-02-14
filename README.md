@@ -1,36 +1,51 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Chat Stimulator
 
-## Getting Started
+A video-based conversation flow driven by speech recognition. Uses a double-buffer video strategy to avoid black flash when switching clips, and a strict state machine for transitions.
 
-First, run the development server:
+## Setup
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Tech
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Next.js** (App Router), **TypeScript**, **Tailwind CSS**
+- No backend; everything runs in the browser (Web Speech API, HTML5 video)
 
-## Learn More
+## Video strategy (no black flash)
 
-To learn more about Next.js, take a look at the following resources:
+- **Double buffer**: Two `<video>` elements (active + standby). The visible one plays; the other preloads the next clip.
+- **Switch sequence**: Set standby `src` → wait until `readyState >= HAVE_FUTURE_DATA` or `canplaythrough` → start standby playback → swap visibility (opacity) → pause and reset the previous active so it becomes the next standby.
+- **Preloading**: On load, `<link rel="preload" as="video">` (and optional programmatic preload) for idle, greeting, listening, response clips, goodbye, fallback, prompt.
+- **Why it works**: The UI never shows a video until it’s already buffered and producing frames, so there’s no blank frame on transition.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Speech strategy
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- **Web Speech API**: Wrapper in `lib/speech/speechRecognition.ts` (feature detect, start/stop guards, `onResult`, `onError`, `onEnd`).
+- **Lifecycle**: Mic starts only when state is `LISTENING`; stops when leaving LISTENING, on final result, or on error/permission denied.
+- **Keyword rules** (in `domain/conversation/keywords.ts`): Normalize (lowercase, trim). Then: “goodbye”/“bye” → goodbye clip; “hello”/“hi” → general response; “weather”/“today” → weather; else → general; empty/error → fallback.
+- **Fallbacks**: Speech error or no-speech → play fallback clip and resume listening; mic permission denied → show message and keep LISTENING video (mic off).
 
-## Deploy on Vercel
+## Implemented vs stretch
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- **Implemented**: Domain state machine, double-buffer VideoStage, preload, Web Speech wrapper, keyword mapping, transcript, mic indicator, controls, error handling (video load, permission, unsupported), silence timer (8–9 s prompt, then goodbye on second silence), debug panel (state, last keyword, simulate video ended).
+- **Stretch**: Optional typed-input fallback when mic is denied or unsupported; `requestVideoFrameCallback` for swap-after-frame if needed.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Known limitations
+
+- **Web Speech**: Best support in Chrome and Edge; Safari has limited or no support — the UI shows “Mic: unsupported” and suggests Chrome/Edge.
+- **Mobile**: Autoplay and some codecs may behave differently; videos are muted by default for autoplay policy.
+- **Videos**: Place your own clips in `public/videos/`: `idle.mp4`, `greeting.mp4`, `listening.mp4`, `weather.mp4`, `general_response.mp4`, `goodbye.mp4`, `fallback.mp4`, `prompt.mp4`.
+
+## Project structure
+
+- `app/` — layout, page shell, globals
+- `components/` — VideoStage (double-buffer), Controls, MicIndicator, Transcript, DebugPanel
+- `domain/conversation/` — types, states, reducer (pure), keywords
+- `lib/speech/` — speechRecognition wrapper, silenceTimer
+- `lib/video/` — clips (clipId → URL), preload
+- `hooks/` — useConversationController (reducer + effects + speech + silence)
