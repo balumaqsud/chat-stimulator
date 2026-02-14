@@ -57,7 +57,11 @@ export function VideoStage({
       const standby = standbyRef.current;
       if (!active || !standby) return;
 
-      const src = getClipSrc(clip);
+      const path = getClipSrc(clip);
+      const src =
+        typeof window !== "undefined"
+          ? new URL(path, window.location.origin).href
+          : path;
 
       if (displayedClipRef.current === clip && !isSwitchingRef.current) {
         const visibleEl = visible === "active" ? active : standby;
@@ -123,7 +127,11 @@ export function VideoStage({
   useEffect(() => {
     const active = activeRef.current;
     if (!active || displayedClipRef.current !== null) return;
-    const src = getClipSrc(currentClip);
+    const path = getClipSrc(currentClip);
+    const src =
+      typeof window !== "undefined"
+        ? new URL(path, window.location.origin).href
+        : path;
     active.src = src;
     active.loop = isLooping;
     displayedClipRef.current = currentClip;

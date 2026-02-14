@@ -5,9 +5,11 @@ import { Controls } from "@/components/Controls/Controls";
 import { DebugPanel } from "@/components/DebugPanel/DebugPanel";
 import type { ClipId } from "@/domain/conversation/types";
 import { useConversationController } from "@/hooks/useConversationController";
+import { useRequestMicOnLoad } from "@/hooks/useRequestMicOnLoad";
 import { getClipSrc } from "@/lib/video/clips";
 
 export default function Home() {
+  useRequestMicOnLoad();
   const {
     uiState,
     actions,
