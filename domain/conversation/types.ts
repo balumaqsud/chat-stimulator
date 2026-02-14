@@ -16,6 +16,7 @@ export type ClipId =
 /** Conversation state (state machine states). */
 export type ConversationState =
   | "IDLE"
+  | "GREETING"
   | "LISTENING"
   | "RESPONDING"
   | "GOODBYE";

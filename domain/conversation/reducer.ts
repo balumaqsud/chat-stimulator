@@ -16,6 +16,8 @@ function getDefaultClipForState(state: ConversationState): {
   switch (state) {
     case "IDLE":
       return { clip: "idle", isLooping: true };
+    case "GREETING":
+      return { clip: "greeting", isLooping: false };
     case "LISTENING":
       return { clip: "listening", isLooping: true };
     case "RESPONDING":
@@ -39,14 +41,21 @@ export function conversationReducer(
     case "START_CLICK":
       if (state === "IDLE") {
         return {
-          state: "LISTENING",
-          clip: "listening",
-          isLooping: true,
+          state: "GREETING",
+          clip: "greeting",
+          isLooping: false,
         };
       }
       return { state, ...getDefaultClipForState(state) };
 
     case "VIDEO_ENDED":
+      if (state === "GREETING") {
+        return {
+          state: "LISTENING",
+          clip: "listening",
+          isLooping: true,
+        };
+      }
       if (state === "RESPONDING") {
         return {
           state: "LISTENING",
