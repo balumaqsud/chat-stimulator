@@ -74,38 +74,12 @@ export function conversationReducer(
 
     case "SPEECH_RESULT": {
       if (state !== "LISTENING") {
-        if (typeof fetch !== "undefined") {
-          fetch("http://127.0.0.1:7244/ingest/667d0e13-f04c-424e-8066-86cf988ff92b", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              location: "reducer.ts:SPEECH_RESULT",
-              message: "state not LISTENING",
-              data: { state, text: event.text, eventClip: event.clip },
-              timestamp: Date.now(),
-              hypothesisId: "H3",
-            }),
-          }).catch(() => {});
-        }
         return { state, ...getDefaultClipForState(state) };
       }
       const clip =
         event.clip != null
           ? event.clip
           : analyzeUserInput(event.text).clip;
-      if (typeof fetch !== "undefined") {
-        fetch("http://127.0.0.1:7244/ingest/667d0e13-f04c-424e-8066-86cf988ff92b", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            location: "reducer.ts:SPEECH_RESULT",
-            message: "computed clip",
-            data: { state, text: event.text, eventClip: event.clip, computedClip: clip },
-            timestamp: Date.now(),
-            hypothesisId: "H3",
-          }),
-        }).catch(() => {});
-      }
       if (clip === "goodbye") {
         return {
           state: "GOODBYE",

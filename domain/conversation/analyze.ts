@@ -42,38 +42,10 @@ export function analyzeUserInput(rawText: string): AnalysisResult {
   }
 
   if (matchesPhrases(normalized, VIDEO_KEYWORDS.goodbye)) {
-    const out = { clip: "goodbye" as const, intent: "goodbye" as const };
-    if (typeof fetch !== "undefined") {
-      fetch("http://127.0.0.1:7244/ingest/667d0e13-f04c-424e-8066-86cf988ff92b", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          location: "analyze.ts:analyzeUserInput",
-          message: "return clip",
-          data: { normalized, clip: out.clip },
-          timestamp: Date.now(),
-          hypothesisId: "H2",
-        }),
-      }).catch(() => {});
-    }
-    return out;
+    return { clip: "goodbye", intent: "goodbye" };
   }
   if (matchesPhrases(normalized, VIDEO_KEYWORDS.easter_egg)) {
-    const out = { clip: "easter_egg" as const, intent: "easter_egg" as const };
-    if (typeof fetch !== "undefined") {
-      fetch("http://127.0.0.1:7244/ingest/667d0e13-f04c-424e-8066-86cf988ff92b", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          location: "analyze.ts:analyzeUserInput",
-          message: "return clip",
-          data: { normalized, clip: out.clip },
-          timestamp: Date.now(),
-          hypothesisId: "H2",
-        }),
-      }).catch(() => {});
-    }
-    return out;
+    return { clip: "easter_egg", intent: "easter_egg" };
   }
   if (matchesPhrases(normalized, VIDEO_KEYWORDS.weather)) {
     return { clip: "weather", intent: "weather" };
@@ -85,21 +57,7 @@ export function analyzeUserInput(rawText: string): AnalysisResult {
     return { clip: "general_response", intent: "general" };
   }
 
-  const out = { clip: "general_response" as const, intent: "general" as const };
-  if (typeof fetch !== "undefined") {
-    fetch("http://127.0.0.1:7244/ingest/667d0e13-f04c-424e-8066-86cf988ff92b", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        location: "analyze.ts:analyzeUserInput",
-        message: "return clip (default general)",
-        data: { normalized, clip: out.clip },
-        timestamp: Date.now(),
-        hypothesisId: "H2",
-      }),
-    }).catch(() => {});
-  }
-  return out;
+  return { clip: "general_response", intent: "general" };
 }
 
 /**
