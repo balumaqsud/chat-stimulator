@@ -12,7 +12,7 @@ import { createSilenceTimer } from "@/lib/speech/silenceTimer";
 import { analyzeUserInput } from "@/domain/conversation/analyze";
 import { isResponseClipId } from "@/lib/video/keywords";
 
-const FINALIZATION_MS = 1000;
+const FINALIZATION_MS = 3000;
 const RESTART_DELAY_MS = 300;
 const RESTART_BUDGET_MAX = 4;
 const RESTART_WINDOW_MS = 15000;
@@ -78,13 +78,19 @@ function controllerReducer(
     | { type: "SET_RESPONSE_SUMMARY"; payload: string | null }
 ): ControllerState {
   switch (action.type) {
-    case "REDUCER_RESULT":
-      return updateFromReducer(
+    case "REDUCER_RESULT": {
+      const next = updateFromReducer(
         state,
         action.result.state,
         action.result.clip,
         action.result.isLooping
       );
+      const clearedTranscript =
+        state.conversationState === "RESPONDING" && action.result.state === "LISTENING"
+          ? { ...next, transcript: "" }
+          : next;
+      return clearedTranscript;
+    }
     case "SET_TRANSCRIPT":
       return { ...state, transcript: action.payload };
     case "SET_ERROR":
@@ -210,7 +216,10 @@ export function useConversationController(): UseConversationControllerReturn {
 
   const commitUtterance = useCallback((fullText: string) => {
     const t = fullText.trim();
-    if (!t) return;
+    if (!t) {
+      callbacksRef.current.dispatchEvent({ type: "SPEECH_ERROR" });
+      return;
+    }
     if (stateRef.current.conversationState === "RESPONDING") {
       return;
     }
@@ -267,13 +276,8 @@ export function useConversationController(): UseConversationControllerReturn {
   useEffect(() => {
     if (!silenceTimerRef.current) {
       silenceTimerRef.current = createSilenceTimer({
-        onSilence(secondSilence) {
-          if (secondSilence) {
-            const result = conversationReducer(stateRef.current.conversationState, { type: "STOP_CLICK" });
-            callbacksRef.current.dispatchState({ type: "REDUCER_RESULT", result });
-          } else {
-            callbacksRef.current.dispatchEvent({ type: "SILENCE_TIMEOUT" });
-          }
+        onSilence(_secondSilence) {
+          callbacksRef.current.dispatchEvent({ type: "SILENCE_TIMEOUT" });
         },
       });
     }
@@ -298,42 +302,72 @@ export function useConversationController(): UseConversationControllerReturn {
         onFinal(segment) {
           const buffer = utteranceBufferRef.current;
           utteranceBufferRef.current = (buffer + (buffer ? " " : "") + segment).trim();
-          const full = utteranceBufferRef.current;
-          if (full) commitUtterance(full);
+          callbacksRef.current.setTranscript(utteranceBufferRef.current);
+          silenceTimerRef.current?.reset();
+          clearFinalizationTimer();
+          finalizationTimerRef.current = setTimeout(() => {
+            finalizationTimerRef.current = null;
+            const buf = utteranceBufferRef.current;
+            const interim = interimTextRef.current;
+            const full = (buf + (buf && interim ? " " : "") + interim).trim();
+            if (full) commitUtterance(full);
+          }, FINALIZATION_MS);
         },
         onError(message) {
           speechRef.current?.stop();
           clearFinalizationTimer();
           if (message.includes("permission denied") || message.includes("not-allowed")) {
             callbacksRef.current.dispatchState({ type: "SET_PERMISSION_DENIED", payload: true });
-            callbacksRef.current.setError(message);
             desiredRunningRef.current = false;
             return;
           }
           if (message.includes("No speech") || message.includes("no-speech")) {
             callbacksRef.current.setError(null);
+            callbacksRef.current.dispatchEvent({ type: "SILENCE_TIMEOUT" });
+            return;
+          }
+          if (
+            message.includes("Speech not recognized") ||
+            message.includes("no-match")
+          ) {
+            callbacksRef.current.setError(null);
             callbacksRef.current.dispatchEvent({ type: "SPEECH_ERROR" });
-            if (desiredRunningRef.current && stateRef.current.conversationState === "LISTENING") {
+            return;
+          }
+          if (message.includes("aborted")) {
+            callbacksRef.current.setError(null);
+            const active =
+              stateRef.current.conversationState === "LISTENING" ||
+              stateRef.current.conversationState === "RESPONDING";
+            if (desiredRunningRef.current && active) {
               const now = Date.now();
-              if (now - restartWindowStartRef.current < RESTART_WINDOW_MS && restartCountRef.current < RESTART_BUDGET_MAX) {
+              if (now - restartWindowStartRef.current > RESTART_WINDOW_MS) {
+                restartWindowStartRef.current = now;
+                restartCountRef.current = 0;
+              }
+              if (restartCountRef.current < RESTART_BUDGET_MAX) {
                 restartCountRef.current += 1;
                 restartTimeoutRef.current = setTimeout(() => {
                   restartTimeoutRef.current = null;
                   speechRef.current?.start();
                 }, RESTART_DELAY_MS);
+              } else {
+                callbacksRef.current.dispatchEvent({ type: "SILENCE_TIMEOUT" });
               }
             }
             return;
           }
           if (message.includes("network") || message.includes("Network")) {
-            callbacksRef.current.setError("Speech service issue. Retrying…");
+            callbacksRef.current.setError(null);
             let attempt = 0;
             const tryAgain = () => {
-              if (stateRef.current.conversationState !== "LISTENING" || !desiredRunningRef.current) return;
+              const active =
+                stateRef.current.conversationState === "LISTENING" ||
+                stateRef.current.conversationState === "RESPONDING";
+              if (!active || !desiredRunningRef.current) return;
               attempt += 1;
               if (attempt > NETWORK_RETRY_DELAYS.length) {
-                callbacksRef.current.setError("Speech service unavailable. Use typed input.");
-                callbacksRef.current.dispatchEvent({ type: "SPEECH_ERROR" });
+                callbacksRef.current.dispatchEvent({ type: "SILENCE_TIMEOUT" });
                 return;
               }
               const delay = NETWORK_RETRY_DELAYS[attempt - 1] ?? 2000;
@@ -344,12 +378,33 @@ export function useConversationController(): UseConversationControllerReturn {
             setTimeout(tryAgain, NETWORK_RETRY_DELAYS[0]);
             return;
           }
-          callbacksRef.current.setError(message);
-          callbacksRef.current.dispatchEvent({ type: "SPEECH_ERROR" });
+          callbacksRef.current.setError(null);
+          const active =
+            stateRef.current.conversationState === "LISTENING" ||
+            stateRef.current.conversationState === "RESPONDING";
+          if (desiredRunningRef.current && active) {
+            const now = Date.now();
+            if (now - restartWindowStartRef.current > RESTART_WINDOW_MS) {
+              restartWindowStartRef.current = now;
+              restartCountRef.current = 0;
+            }
+            if (restartCountRef.current < RESTART_BUDGET_MAX) {
+              restartCountRef.current += 1;
+              restartTimeoutRef.current = setTimeout(() => {
+                restartTimeoutRef.current = null;
+                speechRef.current?.start();
+              }, RESTART_DELAY_MS);
+            } else {
+              callbacksRef.current.dispatchEvent({ type: "SILENCE_TIMEOUT" });
+            }
+          }
         },
         onStart() {},
         onEnd() {
-          if (!desiredRunningRef.current || stateRef.current.conversationState !== "LISTENING") return;
+          const active =
+            stateRef.current.conversationState === "LISTENING" ||
+            stateRef.current.conversationState === "RESPONDING";
+          if (!desiredRunningRef.current || !active) return;
           const now = Date.now();
           if (now - restartWindowStartRef.current > RESTART_WINDOW_MS) {
             restartWindowStartRef.current = now;
@@ -359,12 +414,16 @@ export function useConversationController(): UseConversationControllerReturn {
             restartCountRef.current += 1;
             restartTimeoutRef.current = setTimeout(() => {
               restartTimeoutRef.current = null;
-              if (desiredRunningRef.current && stateRef.current.conversationState === "LISTENING") {
+              if (
+                desiredRunningRef.current &&
+                (stateRef.current.conversationState === "LISTENING" ||
+                  stateRef.current.conversationState === "RESPONDING")
+              ) {
                 speechRef.current?.start();
               }
             }, RESTART_DELAY_MS);
           } else {
-            callbacksRef.current.setError("Speech stopped unexpectedly. Try again or use typed input.");
+            callbacksRef.current.dispatchEvent({ type: "SILENCE_TIMEOUT" });
           }
         },
       });
@@ -384,7 +443,8 @@ export function useConversationController(): UseConversationControllerReturn {
   }, []);
 
   useEffect(() => {
-    if (state.conversationState !== "LISTENING") {
+    const s = state.conversationState;
+    if (s === "IDLE" || s === "GOODBYE") {
       desiredRunningRef.current = false;
       utteranceBufferRef.current = "";
       if (restartTimeoutRef.current !== null) {
@@ -392,6 +452,8 @@ export function useConversationController(): UseConversationControllerReturn {
         restartTimeoutRef.current = null;
       }
       speechRef.current?.abort();
+      silenceTimerRef.current?.stop();
+    } else if (s === "RESPONDING") {
       silenceTimerRef.current?.stop();
     }
   }, [state.conversationState]);

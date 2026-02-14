@@ -143,7 +143,7 @@ export function VideoStage({
   }, []);
 
   return (
-    <div className="relative w-full h-full min-h-[240px] bg-black overflow-hidden rounded-lg">
+    <div className="relative w-full h-full min-h-[300px] bg-black overflow-hidden rounded-lg">
       <video
         ref={activeRef}
         className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-200 ${visible === "active" ? "opacity-100" : "opacity-0"}`}

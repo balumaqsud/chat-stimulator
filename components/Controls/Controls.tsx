@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MicIndicator } from "@/components/MicIndicator/MicIndicator";
 import { Transcript } from "@/components/Transcript/Transcript";
 import type { ConversationUIState } from "@/domain/conversation/types";
@@ -22,6 +22,12 @@ export function Controls({ uiState, onStart, onStop, onStartWithTypedFallback, o
   const speechSupported = uiState.speechSupported !== false;
   const showFallback = permissionDenied || !speechSupported;
 
+  useEffect(() => {
+    if (uiState.state === "LISTENING") {
+      setTypedInput("");
+    }
+  }, [uiState.state]);
+
   const handleTypedSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const t = typedInput.trim();
@@ -33,30 +39,6 @@ export function Controls({ uiState, onStart, onStop, onStartWithTypedFallback, o
 
   return (
     <div className="flex flex-col gap-3">
-      {permissionDenied && (
-        <div className="rounded-lg bg-amber-900/30 border border-amber-700 text-amber-200 px-3 py-2 text-sm">
-          <p className="mb-2">Microphone permission is required. Please allow mic and retry.</p>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={onStart}
-              className="px-3 py-1.5 rounded bg-amber-700 hover:bg-amber-600 text-white text-sm font-medium"
-            >
-              Retry permission
-            </button>
-            {onStartWithTypedFallback && (
-              <button
-                type="button"
-                onClick={onStartWithTypedFallback}
-                className="px-3 py-1.5 rounded bg-zinc-600 hover:bg-zinc-500 text-white text-sm font-medium"
-              >
-                Start with typed input
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
       {!speechSupported && isIdle && onStartWithTypedFallback && (
         <div className="rounded-lg bg-zinc-800/50 border border-zinc-700 px-3 py-2 text-sm text-zinc-300">
           <button

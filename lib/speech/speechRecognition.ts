@@ -91,7 +91,9 @@ export function createSpeechRecognizer(
             ? "Microphone permission denied"
             : event.error === "no-speech"
               ? "No speech heard"
-              : `Speech error: ${event.error}`;
+              : event.error === "no-match"
+                ? "Speech not recognized"
+                : `Speech error: ${event.error}`;
         callbacks.onError(message);
       };
 

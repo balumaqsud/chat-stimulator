@@ -18,6 +18,10 @@ export default function Home() {
   } = useConversationController();
 
   const handleVideoLoadError = (clip: ClipId, _err: unknown) => {
+    if (uiState.state === "IDLE") {
+      setError(null);
+      return;
+    }
     setError(`Missing or failed to load video: ${getClipSrc(clip)}`);
   };
 
@@ -29,7 +33,7 @@ export default function Home() {
         <h1 className="text-xl font-semibold">Chat Stimulator</h1>
       </header>
 
-      <main className="flex-1 container max-w-2xl mx-auto p-4 flex flex-col gap-4">
+      <main className="flex-1 container max-w-3xl mx-auto p-4 flex flex-col gap-4">
         {uiState.speechSupported === false && (
           <div
             role="alert"
@@ -56,7 +60,7 @@ export default function Home() {
           </div>
         )}
 
-        <section className="flex-1 min-h-0 flex flex-col">
+        <section className="flex-1 min-h-[300px] flex flex-col">
           <VideoStage
             key={uiState.state}
             currentClip={uiState.currentClip}
