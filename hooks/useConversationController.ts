@@ -413,6 +413,17 @@ export function useConversationController(): UseConversationControllerReturn {
     }
   }, [commitUtterance]);
 
+  // Start speech and silence timer as soon as we enter LISTENING so the mic is on immediately (no wait for video).
+  useEffect(() => {
+    if (state.conversationState !== "LISTENING") return;
+    if (state.permissionDenied || !speechRef.current?.isSupported()) return;
+    desiredRunningRef.current = true;
+    restartWindowStartRef.current = Date.now();
+    restartCountRef.current = 0;
+    speechRef.current?.start();
+    silenceTimerRef.current?.start();
+  }, [state.conversationState]);
+
   const onClipReady = useCallback((clipId: ClipId) => {
     if (clipId !== "listening") return;
     if (stateRef.current.conversationState !== "LISTENING") return;
@@ -455,17 +466,15 @@ export function useConversationController(): UseConversationControllerReturn {
       speechRef.current?.abort();
       silenceTimerRef.current?.stop();
     } else if (s === "RESPONDING") {
-      // Keep mic on during prompt so user can respond to "Are you there?"
-      if (state.currentClip !== "prompt") {
-        desiredRunningRef.current = false;
-        utteranceBufferRef.current = "";
-        if (restartTimeoutRef.current !== null) {
-          clearTimeout(restartTimeoutRef.current);
-          restartTimeoutRef.current = null;
-        }
-        speechRef.current?.abort();
-        silenceTimerRef.current?.stop();
+      // Stop speech during all response clips including prompt — avoids anime speech in prompt.mp4 being captured as user input.
+      desiredRunningRef.current = false;
+      utteranceBufferRef.current = "";
+      if (restartTimeoutRef.current !== null) {
+        clearTimeout(restartTimeoutRef.current);
+        restartTimeoutRef.current = null;
       }
+      speechRef.current?.abort();
+      silenceTimerRef.current?.stop();
     }
   }, [state.conversationState, state.currentClip]);
 

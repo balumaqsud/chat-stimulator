@@ -16,8 +16,6 @@ function getDefaultClipForState(state: ConversationState): {
   switch (state) {
     case "IDLE":
       return { clip: "idle", isLooping: true };
-    case "GREETING":
-      return { clip: "greeting", isLooping: false };
     case "LISTENING":
       return { clip: "listening", isLooping: true };
     case "RESPONDING":
@@ -41,21 +39,14 @@ export function conversationReducer(
     case "START_CLICK":
       if (state === "IDLE") {
         return {
-          state: "GREETING",
-          clip: "greeting",
-          isLooping: false,
-        };
-      }
-      return { state, ...getDefaultClipForState(state) };
-
-    case "VIDEO_ENDED":
-      if (state === "GREETING") {
-        return {
           state: "LISTENING",
           clip: "listening",
           isLooping: true,
         };
       }
+      return { state, ...getDefaultClipForState(state) };
+
+    case "VIDEO_ENDED":
       if (state === "RESPONDING") {
         return {
           state: "LISTENING",
@@ -129,7 +120,7 @@ export function conversationReducer(
     case "MIC_PERMISSION_DENIED":
       return { state, ...getDefaultClipForState(state) };
 
-    // No response: listen → prompt → listen loop. Goodbye only on user action (goodbye phrase or End chat).
+    // One listening phase → one prompt → one listening phase (no give up). Goodbye only on user action.
     case "SILENCE_TIMEOUT":
       if (state === "LISTENING") {
         return {
