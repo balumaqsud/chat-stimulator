@@ -21,15 +21,15 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex flex-col bg-zinc-950 text-zinc-100">
-      <header className="p-4 border-b border-zinc-800">
-        <h1 className="text-xl font-semibold">Chat Stimulator</h1>
+      <header className="p-4 max-md:px-3 max-md:py-3 border-b border-zinc-800">
+        <h1 className="text-xl max-md:text-lg font-semibold">Chat Stimulator</h1>
       </header>
 
-      <main className="flex-1 container max-w-3xl mx-auto p-4 flex flex-col gap-4">
+      <main className="flex-1 container max-w-3xl mx-auto p-4 max-md:p-3 max-md:gap-3 max-sm:px-2 flex flex-col gap-4">
         {uiState.speechSupported === false && (
           <div
             role="alert"
-            className="rounded-lg bg-amber-900/30 border border-amber-700 text-amber-200 px-3 py-2 text-sm"
+            className="rounded-lg bg-amber-900/30 border border-amber-700 text-amber-200 px-3 py-2 max-md:px-2 max-md:py-2 text-sm max-md:text-xs"
           >
             Speech recognition not supported in this browser. Use Chrome/Edge.
           </div>
@@ -38,7 +38,7 @@ export default function Home() {
         {uiState.error && (
           <div
             role="alert"
-            className="rounded-lg bg-rose-900/30 border border-rose-700 text-rose-200 px-3 py-2 text-sm flex justify-between items-center gap-2"
+            className="rounded-lg bg-rose-900/30 border border-rose-700 text-rose-200 px-3 py-2 max-md:px-2 max-md:py-2 text-sm max-md:text-xs flex justify-between items-center gap-2"
           >
             <span>{uiState.error}</span>
             <button
@@ -52,7 +52,7 @@ export default function Home() {
           </div>
         )}
 
-        <section className="flex-1 min-h-[300px] flex flex-col">
+        <section className="flex-1 min-h-[300px] max-md:min-h-[240px] flex flex-col">
           <VideoStage
             key={uiState.state}
             currentClip={uiState.currentClip}
@@ -76,7 +76,7 @@ export default function Home() {
         />
       </main>
 
-      <footer className="p-4 border-t border-zinc-800 text-center text-zinc-500 text-sm">
+      <footer className="p-4 max-md:px-3 max-md:py-3 border-t border-zinc-800 text-center text-zinc-500 text-sm max-md:text-xs">
         Chat Stimulator — video conversation flow
       </footer>
     </div>

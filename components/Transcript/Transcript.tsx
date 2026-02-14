@@ -13,7 +13,7 @@ export function Transcript({
 }: TranscriptProps) {
   return (
     <div
-      className={`min-h-[4rem] rounded-lg border border-zinc-700 bg-zinc-900/50 p-3 text-sm text-zinc-200 ${className}`}
+      className={`min-h-16 max-md:min-h-12 rounded-lg border border-zinc-700 bg-zinc-900/50 p-3 max-md:p-2 text-sm max-md:text-xs text-zinc-200 ${className}`}
       aria-live="polite"
       aria-atomic="true"
     >

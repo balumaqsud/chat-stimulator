@@ -2,7 +2,8 @@
  * Timer-based silence detection: no audio processing.
  * Start when entering LISTENING; reset on interim results.
  * At SILENCE_MS: callback (play "Are you still there?" prompt).
- * If triggered again: callback with secondSilence true (transition to GOODBYE).
+ * If triggered again: callback with secondSilence true. The app intentionally
+ * does not use secondSilence for GOODBYE; it loops listen→prompt→listen instead.
  */
 
 const SILENCE_MS = 9000;

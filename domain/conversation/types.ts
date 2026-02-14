@@ -26,6 +26,7 @@ export type ConversationEvent =
   | { type: "START_CLICK" }
   | { type: "VIDEO_ENDED" }
   | { type: "SPEECH_RESULT"; text: string; clip?: ClipId; summary?: string }
+  | { type: "SPEECH_RESULT_DURING_PROMPT"; text: string; clip?: ClipId; summary?: string }
   | { type: "SPEECH_ERROR" }
   | { type: "MIC_PERMISSION_DENIED" }
   | { type: "SILENCE_TIMEOUT" }

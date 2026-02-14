@@ -59,12 +59,12 @@ Decision rules (prefer the most specific match; use fallback only when nothing e
 - easter_egg: User talks about jobs, applying, career, hiring, position, interview. Choose only when the main topic is work/job/career.
 - weather: User asks or talks about weather, forecast, temperature, rain, sun, etc. Choose for any weather-related message.
 - greeting: User is greeting or saying hello. Use for hello, hi, hey, good morning, etc.
-- general_response: Small talk, how are you, or general chat that does not fit goodbye, job, weather, or greeting.
+- general_response: Small talk, how are you, or general chat that does not fit goodbye, job, weather, or greeting. Includes both "how are you"–style questions and answers like "I'm doing great", "I'm good", "I'm ok", "doing well", "fine", etc. Do not use fallback for these well-being answers.
 - fallback: Use when the message is unclear, unintelligible, off-topic, repetitive filler, random nonsense, or not understandable. This includes: "Blah blah", "La la la", "meow meow", "Virtual person Blah blah meow meow", "asdfghjkl", repeated nonsense, gibberish, or any input that does not express a clear intent. Do not use for normal greetings or vague but understandable chat.
 
 Priority: goodbye > easter_egg > weather > greeting > general_response. Use fallback only when nothing else fits.
 
-Examples: "Bye, see you tomorrow" -> goodbye. "What's the weather like?" -> weather. "I'd like to apply for the job" -> easter_egg. "Hello!" or "Hi there!" -> greeting. "How are you?" -> general_response. "Blah blah blah", "La la la", "Virtual person Blah blah meow meow", "asdfghjkl", repeated nonsense -> fallback.
+Examples: "Bye, see you tomorrow" -> goodbye. "What's the weather like?" -> weather. "I'd like to apply for the job" -> easter_egg. "Hello!" or "Hi there!" -> greeting. "How are you?" -> general_response. "I'm doing great", "I'm good", "I'm ok" -> general_response. "Blah blah blah", "La la la", "Virtual person Blah blah meow meow", "asdfghjkl", repeated nonsense -> fallback.
 
 Available clips:
 ${clipList}

@@ -203,7 +203,10 @@ export function useConversationController(): UseConversationControllerReturn {
       callbacksRef.current.dispatchEvent({ type: "SPEECH_ERROR" });
       return;
     }
-    if (stateRef.current.conversationState === "RESPONDING") {
+    const duringPrompt =
+      stateRef.current.conversationState === "RESPONDING" &&
+      stateRef.current.currentClip === "prompt";
+    if (stateRef.current.conversationState === "RESPONDING" && !duringPrompt) {
       return;
     }
     if (finalizationTimerRef.current !== null) {
@@ -218,7 +221,8 @@ export function useConversationController(): UseConversationControllerReturn {
       callbacksRef.current.dispatchState({ type: "SET_RESPONSE_SUMMARY", payload: null });
       const result = analyzeUserInput(t);
       callbacksRef.current.setLastKeywordMatch(result.intent);
-      callbacksRef.current.dispatchEvent({ type: "SPEECH_RESULT", text: t });
+      const eventType = duringPrompt ? "SPEECH_RESULT_DURING_PROMPT" : "SPEECH_RESULT";
+      callbacksRef.current.dispatchEvent({ type: eventType, text: t });
     };
 
     if (!useOpenAIAnalysis) {
@@ -241,8 +245,12 @@ export function useConversationController(): UseConversationControllerReturn {
           typeof data.clip === "string" && isResponseClipId(data.clip) ? data.clip : undefined;
         callbacksRef.current.dispatchState({ type: "SET_RESPONSE_SUMMARY", payload: summary });
         callbacksRef.current.setLastKeywordMatch(clip ?? "general");
+        const stillDuringPrompt =
+          stateRef.current.conversationState === "RESPONDING" &&
+          stateRef.current.currentClip === "prompt";
+        const eventType = stillDuringPrompt ? "SPEECH_RESULT_DURING_PROMPT" : "SPEECH_RESULT";
         callbacksRef.current.dispatchEvent({
-          type: "SPEECH_RESULT",
+          type: eventType,
           text: t,
           clip: clip as ClipId | undefined,
         });
@@ -259,6 +267,7 @@ export function useConversationController(): UseConversationControllerReturn {
   useEffect(() => {
     if (!silenceTimerRef.current) {
       silenceTimerRef.current = createSilenceTimer({
+        // Intentionally ignore secondSilence: never transition to GOODBYE from silence; loop listen→prompt→listen.
         onSilence(_secondSilence) {
           callbacksRef.current.dispatchEvent({ type: "SILENCE_TIMEOUT" });
         },
@@ -319,9 +328,7 @@ export function useConversationController(): UseConversationControllerReturn {
           }
           if (message.includes("aborted")) {
             callbacksRef.current.setError(null);
-            const active =
-              stateRef.current.conversationState === "LISTENING" ||
-              stateRef.current.conversationState === "RESPONDING";
+            const active = stateRef.current.conversationState === "LISTENING";
             if (desiredRunningRef.current && active) {
               const now = Date.now();
               if (now - restartWindowStartRef.current > RESTART_WINDOW_MS) {
@@ -344,9 +351,7 @@ export function useConversationController(): UseConversationControllerReturn {
             callbacksRef.current.setError(null);
             let attempt = 0;
             const tryAgain = () => {
-              const active =
-                stateRef.current.conversationState === "LISTENING" ||
-                stateRef.current.conversationState === "RESPONDING";
+              const active = stateRef.current.conversationState === "LISTENING";
               if (!active || !desiredRunningRef.current) return;
               attempt += 1;
               if (attempt > NETWORK_RETRY_DELAYS.length) {
@@ -362,9 +367,7 @@ export function useConversationController(): UseConversationControllerReturn {
             return;
           }
           callbacksRef.current.setError(null);
-          const active =
-            stateRef.current.conversationState === "LISTENING" ||
-            stateRef.current.conversationState === "RESPONDING";
+          const active = stateRef.current.conversationState === "LISTENING";
           if (desiredRunningRef.current && active) {
             const now = Date.now();
             if (now - restartWindowStartRef.current > RESTART_WINDOW_MS) {
@@ -384,9 +387,7 @@ export function useConversationController(): UseConversationControllerReturn {
         },
         onStart() {},
         onEnd() {
-          const active =
-            stateRef.current.conversationState === "LISTENING" ||
-            stateRef.current.conversationState === "RESPONDING";
+          const active = stateRef.current.conversationState === "LISTENING";
           if (!desiredRunningRef.current || !active) return;
           const now = Date.now();
           if (now - restartWindowStartRef.current > RESTART_WINDOW_MS) {
@@ -399,8 +400,7 @@ export function useConversationController(): UseConversationControllerReturn {
               restartTimeoutRef.current = null;
               if (
                 desiredRunningRef.current &&
-                (stateRef.current.conversationState === "LISTENING" ||
-                  stateRef.current.conversationState === "RESPONDING")
+                stateRef.current.conversationState === "LISTENING"
               ) {
                 speechRef.current?.start();
               }
@@ -425,6 +425,24 @@ export function useConversationController(): UseConversationControllerReturn {
     silenceTimerRef.current?.start();
   }, []);
 
+  // Hardening: if we're in LISTENING with listening clip but onClipReady didn't fire (e.g. reuse), start speech/silence timer after a short delay.
+  useEffect(() => {
+    if (state.conversationState !== "LISTENING" || state.currentClip !== "listening") return;
+    if (state.permissionDenied || !speechRef.current?.isSupported()) return;
+    const id = setTimeout(() => {
+      if (stateRef.current.conversationState !== "LISTENING" || stateRef.current.currentClip !== "listening") return;
+      if (stateRef.current.permissionDenied) return;
+      if (!desiredRunningRef.current) {
+        desiredRunningRef.current = true;
+        restartWindowStartRef.current = Date.now();
+        restartCountRef.current = 0;
+        speechRef.current?.start();
+        silenceTimerRef.current?.start();
+      }
+    }, 150);
+    return () => clearTimeout(id);
+  }, [state.conversationState, state.currentClip]);
+
   useEffect(() => {
     const s = state.conversationState;
     if (s === "IDLE" || s === "GOODBYE") {
@@ -437,9 +455,19 @@ export function useConversationController(): UseConversationControllerReturn {
       speechRef.current?.abort();
       silenceTimerRef.current?.stop();
     } else if (s === "RESPONDING") {
-      silenceTimerRef.current?.stop();
+      // Keep mic on during prompt so user can respond to "Are you there?"
+      if (state.currentClip !== "prompt") {
+        desiredRunningRef.current = false;
+        utteranceBufferRef.current = "";
+        if (restartTimeoutRef.current !== null) {
+          clearTimeout(restartTimeoutRef.current);
+          restartTimeoutRef.current = null;
+        }
+        speechRef.current?.abort();
+        silenceTimerRef.current?.stop();
+      }
     }
-  }, [state.conversationState]);
+  }, [state.conversationState, state.currentClip]);
 
   const uiState: ConversationUIState = {
     state: state.conversationState,

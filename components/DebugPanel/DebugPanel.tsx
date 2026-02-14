@@ -16,7 +16,7 @@ export function DebugPanel({ uiState, onSimulateVideoEnded }: DebugPanelProps) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed bottom-20 right-4 px-2 py-1 rounded bg-zinc-700 text-zinc-400 text-xs hover:bg-zinc-600"
+        className="fixed bottom-20 right-4 max-md:bottom-24 max-md:right-3 max-sm:right-2 px-2 py-1 rounded bg-zinc-700 text-zinc-400 text-xs hover:bg-zinc-600"
       >
         Debug
       </button>
@@ -24,7 +24,7 @@ export function DebugPanel({ uiState, onSimulateVideoEnded }: DebugPanelProps) {
   }
 
   return (
-    <div className="fixed bottom-20 right-4 w-64 rounded-lg border border-zinc-700 bg-zinc-900 shadow-xl p-3 text-xs font-mono">
+    <div className="fixed bottom-20 right-4 max-md:bottom-24 max-md:right-3 w-64 max-md:w-[calc(100vw-1.5rem)] max-md:max-w-[18rem] rounded-lg border border-zinc-700 bg-zinc-900 shadow-xl p-3 text-xs font-mono">
       <div className="flex justify-between items-center mb-2">
         <span className="text-zinc-400 font-semibold">Debug</span>
         <button

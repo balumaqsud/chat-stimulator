@@ -4,7 +4,7 @@ import type {
   ReducerResult,
   ClipId,
 } from "./types";
-import { analyzeUserInput, isGoodbyeResult } from "./analyze";
+import { analyzeUserInput } from "./analyze";
 
 /**
  * State → default clip for that state (looping where applicable).
@@ -94,6 +94,28 @@ export function conversationReducer(
       };
     }
 
+    case "SPEECH_RESULT_DURING_PROMPT": {
+      if (state !== "RESPONDING") {
+        return { state, ...getDefaultClipForState(state) };
+      }
+      const clipPrompt =
+        event.clip != null
+          ? event.clip
+          : analyzeUserInput(event.text).clip;
+      if (clipPrompt === "goodbye") {
+        return {
+          state: "GOODBYE",
+          clip: "goodbye",
+          isLooping: false,
+        };
+      }
+      return {
+        state: "RESPONDING",
+        clip: clipPrompt,
+        isLooping: false,
+      };
+    }
+
     case "SPEECH_ERROR":
       if (state === "LISTENING") {
         return {
@@ -107,6 +129,7 @@ export function conversationReducer(
     case "MIC_PERMISSION_DENIED":
       return { state, ...getDefaultClipForState(state) };
 
+    // No response: listen → prompt → listen loop. Goodbye only on user action (goodbye phrase or End chat).
     case "SILENCE_TIMEOUT":
       if (state === "LISTENING") {
         return {

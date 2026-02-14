@@ -17,13 +17,13 @@ export function Controls({ uiState, onStart, onStop }: ControlsProps) {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 max-sm:flex-col max-sm:items-stretch max-sm:gap-2">
+        <div className="flex items-center gap-3 max-sm:flex-col max-sm:gap-2">
           <button
             type="button"
             onClick={onStart}
             disabled={!isIdle}
-            className="px-4 py-2 rounded-lg bg-emerald-600 text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-emerald-500 transition-colors"
+            className="px-4 py-2 min-h-[44px] rounded-lg bg-emerald-600 text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-emerald-500 transition-colors"
           >
             Start chat
           </button>
@@ -31,7 +31,7 @@ export function Controls({ uiState, onStart, onStop }: ControlsProps) {
             type="button"
             onClick={onStop}
             disabled={isIdle}
-            className="px-4 py-2 rounded-lg bg-rose-600 text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-rose-500 transition-colors"
+            className="px-4 py-2 min-h-[44px] rounded-lg bg-rose-600 text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-rose-500 transition-colors"
           >
             End chat
           </button>
