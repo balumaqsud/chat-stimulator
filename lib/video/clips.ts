@@ -1,9 +1,9 @@
 import type { ClipId } from "@/domain/conversation/types";
 
-const VIDEO_BASE = "/videos";
+const VIDEO_BASE = "/video_files";
 
 /**
- * Map clip id to public URL. Files live in public/videos/*.mp4
+ * Map clip id to public URL. Files live in public/video_files/*.mp4
  */
 export function getClipSrc(clipId: ClipId): string {
   return `${VIDEO_BASE}/${clipId}.mp4`;

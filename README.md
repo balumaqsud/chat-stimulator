@@ -39,7 +39,7 @@ Open [http://localhost:3000](http://localhost:3000).
 
 - **Web Speech**: Best support in Chrome and Edge; Safari has limited or no support — the UI shows “Mic: unsupported” and suggests Chrome/Edge.
 - **Mobile**: Autoplay and some codecs may behave differently; videos are muted by default for autoplay policy.
-- **Videos**: Place your own clips in `public/videos/`: `idle.mp4`, `greeting.mp4`, `listening.mp4`, `weather.mp4`, `general_response.mp4`, `goodbye.mp4`, `fallback.mp4`, `prompt.mp4`.
+- **Videos**: Place your clips in `public/video_files/`: `idle.mp4`, `greeting.mp4`, `listening.mp4`, `weather.mp4`, `general_response.mp4`, `goodbye.mp4`, `fallback.mp4`, `prompt.mp4`.
 
 ## Project structure
 

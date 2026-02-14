@@ -3,7 +3,9 @@
 import { VideoStage } from "@/components/VideoStage/VideoStage";
 import { Controls } from "@/components/Controls/Controls";
 import { DebugPanel } from "@/components/DebugPanel/DebugPanel";
+import type { ClipId } from "@/domain/conversation/types";
 import { useConversationController } from "@/hooks/useConversationController";
+import { getClipSrc } from "@/lib/video/clips";
 
 export default function Home() {
   const {
@@ -13,8 +15,8 @@ export default function Home() {
     setError,
   } = useConversationController();
 
-  const handleVideoLoadError = (clip: string, _err: unknown) => {
-    setError(`Missing or failed to load video: /videos/${clip}.mp4`);
+  const handleVideoLoadError = (clip: ClipId, _err: unknown) => {
+    setError(`Missing or failed to load video: ${getClipSrc(clip)}`);
   };
 
   return (

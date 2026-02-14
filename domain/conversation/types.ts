@@ -1,6 +1,6 @@
 /**
  * Clip identifiers for video playlist.
- * Map to /videos/{id}.mp4 in lib/video.
+ * Map to /video_files/{id}.mp4 in lib/video.
  */
 export type ClipId =
   | "idle"
