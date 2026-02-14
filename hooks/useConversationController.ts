@@ -10,6 +10,7 @@ import type {
 import { createSpeechRecognizer, isSpeechRecognitionSupported } from "@/lib/speech/speechRecognition";
 import { createSilenceTimer } from "@/lib/speech/silenceTimer";
 import { analyzeUserInput } from "@/domain/conversation/analyze";
+import { isResponseClipId } from "@/lib/video/keywords";
 
 const FINALIZATION_MS = 1000;
 const RESTART_DELAY_MS = 300;
@@ -149,6 +150,19 @@ export function useConversationController(): UseConversationControllerReturn {
 
   const dispatchSpeechResult = useCallback(
     (text: string) => {
+      // #region agent log
+      fetch("http://127.0.0.1:7244/ingest/667d0e13-f04c-424e-8066-86cf988ff92b", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          location: "useConversationController.ts:dispatchSpeechResult",
+          message: "typed submit (no API)",
+          data: { text },
+          timestamp: Date.now(),
+          hypothesisId: "H1",
+        }),
+      }).catch(() => {});
+      // #endregion
       dispatchEvent({ type: "SPEECH_RESULT", text });
     },
     [dispatchEvent]
@@ -210,6 +224,23 @@ export function useConversationController(): UseConversationControllerReturn {
   const commitUtterance = useCallback((fullText: string) => {
     const t = fullText.trim();
     if (!t) return;
+    if (stateRef.current.conversationState === "RESPONDING") {
+      return;
+    }
+    // #region agent log
+    fetch("http://127.0.0.1:7244/ingest/667d0e13-f04c-424e-8066-86cf988ff92b", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        location: "useConversationController.ts:commitUtterance",
+        message: "commitUtterance entry",
+        data: { text: t, useOpenAIAnalysis },
+        timestamp: Date.now(),
+        hypothesisId: "H4",
+        runId: "post-fix",
+      }),
+    }).catch(() => {});
+    // #endregion
     if (finalizationTimerRef.current !== null) {
       clearTimeout(finalizationTimerRef.current);
       finalizationTimerRef.current = null;
@@ -221,6 +252,19 @@ export function useConversationController(): UseConversationControllerReturn {
     const applyFallback = () => {
       callbacksRef.current.dispatchState({ type: "SET_RESPONSE_SUMMARY", payload: null });
       const result = analyzeUserInput(t);
+      // #region agent log
+      fetch("http://127.0.0.1:7244/ingest/667d0e13-f04c-424e-8066-86cf988ff92b", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          location: "useConversationController.ts:applyFallback",
+          message: "fallback clip from analyzeUserInput",
+          data: { text: t, clip: result.clip, intent: result.intent },
+          timestamp: Date.now(),
+          hypothesisId: "H4",
+        }),
+      }).catch(() => {});
+      // #endregion
       callbacksRef.current.setLastKeywordMatch(result.intent);
       callbacksRef.current.dispatchEvent({ type: "SPEECH_RESULT", text: t });
     };
@@ -242,10 +286,20 @@ export function useConversationController(): UseConversationControllerReturn {
       .then((data: { summary?: string; clip?: string }) => {
         const summary = typeof data.summary === "string" ? data.summary : null;
         const clip =
-          typeof data.clip === "string" &&
-          ["goodbye", "easter_egg", "weather", "general_response", "fallback"].includes(data.clip)
-            ? data.clip
-            : undefined;
+          typeof data.clip === "string" && isResponseClipId(data.clip) ? data.clip : undefined;
+        // #region agent log
+        fetch("http://127.0.0.1:7244/ingest/667d0e13-f04c-424e-8066-86cf988ff92b", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            location: "useConversationController.ts:API success",
+            message: "API returned clip",
+            data: { text: t, apiClip: data.clip, validatedClip: clip },
+            timestamp: Date.now(),
+            hypothesisId: "H4",
+          }),
+        }).catch(() => {});
+        // #endregion
         callbacksRef.current.dispatchState({ type: "SET_RESPONSE_SUMMARY", payload: summary });
         callbacksRef.current.setLastKeywordMatch(clip ?? "general");
         callbacksRef.current.dispatchEvent({

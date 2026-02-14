@@ -3,6 +3,7 @@ import OpenAI from "openai";
 import type { ClipId } from "@/domain/conversation/types";
 import {
   VIDEO_CLIP_DESCRIPTIONS,
+  VIDEO_KEYWORDS,
   RESPONSE_CLIP_IDS,
   isResponseClipId,
 } from "@/lib/video/keywords";
@@ -39,18 +40,36 @@ export async function POST(request: Request) {
 
   const text = rawText.slice(0, MAX_TEXT_LENGTH);
 
-  const clipList = RESPONSE_CLIP_IDS.map(
-    (id) => `- ${id}: ${VIDEO_CLIP_DESCRIPTIONS[id]}`
-  ).join("\n");
+  const clipList = RESPONSE_CLIP_IDS.map((id) => {
+    const desc = VIDEO_CLIP_DESCRIPTIONS[id];
+    const phrases = VIDEO_KEYWORDS[id];
+    const phraseList =
+      phrases.length > 0
+        ? ` Example phrases: ${phrases.slice(0, 20).join(", ")}.`
+        : "";
+    return `- ${id}: ${desc}${phraseList}`;
+  }).join("\n");
 
-  const systemPrompt = `You are a classifier. Given the user's spoken message and a list of video clip ids with descriptions, return a JSON object with exactly two keys:
-1. "summary": one short sentence (in English) summarizing what the user said.
-2. "clip": the id of the single most relevant clip from the list below. You must return only one of these exact ids: ${RESPONSE_CLIP_IDS.join(", ")}.
+  const systemPrompt = `You are a classifier that maps the user's spoken message to exactly one response video clip.
 
-Available clips (return only the id, e.g. "goodbye" or "general_response"):
+Return a JSON object with exactly two keys: "summary" (one short sentence in English summarizing what the user said) and "clip" (one of the clip ids below). The "clip" value must be exactly one of: ${RESPONSE_CLIP_IDS.join(", ")}.
+
+Decision rules (prefer the most specific match; use fallback only when nothing else fits):
+- goodbye: User is ending the conversation, saying farewell, or leaving. Choose over any other option when the intent is clearly goodbye.
+- easter_egg: User talks about jobs, applying, career, hiring, position, interview. Choose only when the main topic is work/job/career.
+- weather: User asks or talks about weather, forecast, temperature, rain, sun, etc. Choose for any weather-related message.
+- greeting: User is greeting or saying hello. Use for hello, hi, hey, good morning, etc.
+- general_response: Small talk, how are you, or general chat that does not fit goodbye, job, weather, or greeting.
+- fallback: Only when the message is unclear, unintelligible, off-topic, or not understandable. Do not use for normal greetings or vague but understandable chat.
+
+Priority: goodbye > easter_egg > weather > greeting > general_response. Use fallback only when nothing else fits.
+
+Examples: "Bye, see you tomorrow" -> goodbye. "What's the weather like?" -> weather. "I'd like to apply for the job" -> easter_egg. "Hello!" or "Hi there!" -> greeting. "How are you?" -> general_response. "Blah blah" or gibberish -> fallback.
+
+Available clips:
 ${clipList}
 
-If the message is unclear or irrelevant to all options, use "fallback". If the user is saying goodbye or leaving, use "goodbye". Return valid JSON only, no other text.`;
+Return valid JSON only, no other text.`;
 
   const userPrompt = `User said: ${text}`;
 

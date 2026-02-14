@@ -42,19 +42,64 @@ export function analyzeUserInput(rawText: string): AnalysisResult {
   }
 
   if (matchesPhrases(normalized, VIDEO_KEYWORDS.goodbye)) {
-    return { clip: "goodbye", intent: "goodbye" };
+    const out = { clip: "goodbye" as const, intent: "goodbye" as const };
+    if (typeof fetch !== "undefined") {
+      fetch("http://127.0.0.1:7244/ingest/667d0e13-f04c-424e-8066-86cf988ff92b", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          location: "analyze.ts:analyzeUserInput",
+          message: "return clip",
+          data: { normalized, clip: out.clip },
+          timestamp: Date.now(),
+          hypothesisId: "H2",
+        }),
+      }).catch(() => {});
+    }
+    return out;
   }
   if (matchesPhrases(normalized, VIDEO_KEYWORDS.easter_egg)) {
-    return { clip: "easter_egg", intent: "easter_egg" };
+    const out = { clip: "easter_egg" as const, intent: "easter_egg" as const };
+    if (typeof fetch !== "undefined") {
+      fetch("http://127.0.0.1:7244/ingest/667d0e13-f04c-424e-8066-86cf988ff92b", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          location: "analyze.ts:analyzeUserInput",
+          message: "return clip",
+          data: { normalized, clip: out.clip },
+          timestamp: Date.now(),
+          hypothesisId: "H2",
+        }),
+      }).catch(() => {});
+    }
+    return out;
   }
   if (matchesPhrases(normalized, VIDEO_KEYWORDS.weather)) {
     return { clip: "weather", intent: "weather" };
   }
+  if (matchesPhrases(normalized, VIDEO_KEYWORDS.greeting)) {
+    return { clip: "greeting", intent: "greeting" };
+  }
   if (matchesPhrases(normalized, VIDEO_KEYWORDS.general_response)) {
-    return { clip: "general_response", intent: "greeting" };
+    return { clip: "general_response", intent: "general" };
   }
 
-  return { clip: "general_response", intent: "general" };
+  const out = { clip: "general_response" as const, intent: "general" as const };
+  if (typeof fetch !== "undefined") {
+    fetch("http://127.0.0.1:7244/ingest/667d0e13-f04c-424e-8066-86cf988ff92b", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        location: "analyze.ts:analyzeUserInput",
+        message: "return clip (default general)",
+        data: { normalized, clip: out.clip },
+        timestamp: Date.now(),
+        hypothesisId: "H2",
+      }),
+    }).catch(() => {});
+  }
+  return out;
 }
 
 /**

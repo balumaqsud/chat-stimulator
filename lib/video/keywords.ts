@@ -1,10 +1,11 @@
 import type { ClipId } from "@/domain/conversation/types";
 
-/** Clip ids that can be chosen from user speech (OpenAI or keyword analysis). Excludes idle, listening, greeting, prompt. */
+/** Clip ids that can be chosen from user speech (OpenAI or keyword analysis). Excludes idle, listening, prompt. */
 export const RESPONSE_CLIP_IDS: readonly ClipId[] = [
   "goodbye",
   "easter_egg",
   "weather",
+  "greeting",
   "general_response",
   "fallback",
 ] as const;
@@ -33,20 +34,20 @@ export const VIDEO_KEYWORDS: Record<ClipId, readonly string[]> = {
     "employment",
     "recruit",
     "interview",
+    "talk about the job",
+    "about the job",
+    "about the job position",
+    "talk about the job position",
+    "would like to talk about the job",
+    "like to talk about the job",
+    "the job position",
+    "the job",
   ],
   fallback: [], // plays when user response was not understandable
   general_response: [
-    "hello",
-    "hi",
-    "hey",
     "how are you",
     "what's up",
-    "good morning",
-    "good afternoon",
-    "good evening",
     "how do you do",
-    "nice to meet you",
-    "greetings",
     "how's it going",
     "how are you doing",
   ],
@@ -69,7 +70,16 @@ export const VIDEO_KEYWORDS: Record<ClipId, readonly string[]> = {
     "so long",
     "later",
   ],
-  greeting: [], // played on start, not from user keywords
+  greeting: [
+    "hello",
+    "hi",
+    "hey",
+    "good morning",
+    "good afternoon",
+    "good evening",
+    "nice to meet you",
+    "greetings",
+  ],
   idle: [], // just listening
   listening: [], // just listening, plays when user speaks
   prompt: [], // when user does not speak or does not respond
@@ -101,10 +111,11 @@ export const VIDEO_CLIP_DESCRIPTIONS: Record<ClipId, string> = {
   fallback:
     "Use when the message is unclear, off-topic, or not understandable. Plays a neutral I didn't get that style response.",
   general_response:
-    "Default for normal chat: greetings (hello, hi), small talk, how are you, or anything that doesn't fit goodbye, job, or weather. The avatar gives a general friendly reply.",
+    "Small talk, how are you, or general chat that does not fit goodbye, job, weather, or greeting. The avatar gives a general friendly reply.",
   goodbye:
     "User is ending the conversation, saying farewell, or leaving. Use for goodbye, bye, see you, take care, have a good one, I'm leaving, etc.",
-  greeting: "Played on start",
+  greeting:
+    "User is greeting or saying hello. Use when the user says hello, hi, hey, good morning, etc. Plays the greeting response clip.",
   idle: "Just listening",
   listening: "Just listening; plays when user speaks",
   prompt: "When user does not speak or does not respond",
