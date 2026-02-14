@@ -10,7 +10,8 @@ export type ClipId =
   | "general_response"
   | "goodbye"
   | "fallback"
-  | "prompt";
+  | "prompt"
+  | "easter_egg";
 
 /** Conversation state (state machine states). */
 export type ConversationState =
@@ -24,7 +25,7 @@ export type ConversationState =
 export type ConversationEvent =
   | { type: "START_CLICK" }
   | { type: "VIDEO_ENDED" }
-  | { type: "SPEECH_RESULT"; text: string }
+  | { type: "SPEECH_RESULT"; text: string; clip?: ClipId; summary?: string }
   | { type: "SPEECH_ERROR" }
   | { type: "MIC_PERMISSION_DENIED" }
   | { type: "SILENCE_TIMEOUT" }
@@ -48,4 +49,10 @@ export interface ConversationUIState {
   /** Current clip that should be showing (for VideoStage). */
   currentClip: ClipId;
   isLooping: boolean;
+  /** True when getUserMedia was denied; show retry permission + typed fallback. */
+  permissionDenied?: boolean;
+  /** False when SpeechRecognition is not available; show banner + typed fallback. */
+  speechSupported?: boolean;
+  /** Summary of user speech from OpenAI (when used); null when not available. */
+  responseSummary?: string | null;
 }

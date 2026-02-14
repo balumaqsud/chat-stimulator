@@ -19,4 +19,5 @@ export const PRELOAD_CLIPS: ClipId[] = [
   "goodbye",
   "fallback",
   "prompt",
+  "easter_egg",
 ];

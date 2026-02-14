@@ -7,9 +7,15 @@ import type {
   ConversationUIState,
   ClipId,
 } from "@/domain/conversation/types";
-import { createSpeechRecognition } from "@/lib/speech/speechRecognition";
+import { createSpeechRecognizer, isSpeechRecognitionSupported } from "@/lib/speech/speechRecognition";
 import { createSilenceTimer } from "@/lib/speech/silenceTimer";
-import { textToResponseClip } from "@/domain/conversation/keywords";
+import { analyzeUserInput } from "@/domain/conversation/analyze";
+
+const FINALIZATION_MS = 1000;
+const RESTART_DELAY_MS = 300;
+const RESTART_BUDGET_MAX = 4;
+const RESTART_WINDOW_MS = 15000;
+const NETWORK_RETRY_DELAYS = [500, 1000, 2000];
 
 interface ControllerState extends ConversationUIState {
   conversationState: ConversationState;
@@ -23,6 +29,9 @@ const initialState: ControllerState = {
   transcript: "",
   lastKeywordMatch: null,
   error: null,
+  permissionDenied: false,
+  speechSupported: true,
+  responseSummary: null,
 };
 
 function updateFromReducer(
@@ -45,12 +54,12 @@ export interface UseConversationControllerReturn {
   actions: {
     start: () => void;
     stop: () => void;
+    /** Start conversation without mic (typed input only). Use when permission denied or unsupported. */
+    startWithTypedFallback: () => void;
   };
   dispatchVideoEnded: () => void;
+  onClipReady: (clipId: ClipId) => void;
   dispatchSpeechResult: (text: string) => void;
-  dispatchSpeechError: () => void;
-  dispatchMicPermissionDenied: () => void;
-  dispatchSilenceTimeout: () => void;
   setTranscript: (text: string) => void;
   setError: (error: string | null) => void;
   setLastKeywordMatch: (match: string | null) => void;
@@ -63,6 +72,9 @@ function controllerReducer(
     | { type: "SET_TRANSCRIPT"; payload: string }
     | { type: "SET_ERROR"; payload: string | null }
     | { type: "SET_LAST_KEYWORD"; payload: string | null }
+    | { type: "SET_PERMISSION_DENIED"; payload: boolean }
+    | { type: "SET_SPEECH_SUPPORTED"; payload: boolean }
+    | { type: "SET_RESPONSE_SUMMARY"; payload: string | null }
 ): ControllerState {
   switch (action.type) {
     case "REDUCER_RESULT":
@@ -78,6 +90,12 @@ function controllerReducer(
       return { ...state, error: action.payload };
     case "SET_LAST_KEYWORD":
       return { ...state, lastKeywordMatch: action.payload };
+    case "SET_PERMISSION_DENIED":
+      return { ...state, permissionDenied: action.payload };
+    case "SET_SPEECH_SUPPORTED":
+      return { ...state, speechSupported: action.payload };
+    case "SET_RESPONSE_SUMMARY":
+      return { ...state, responseSummary: action.payload };
     default:
       return state;
   }
@@ -98,13 +116,35 @@ export function useConversationController(): UseConversationControllerReturn {
     dispatchEvent({ type: "VIDEO_ENDED" });
   }, [dispatchEvent]);
 
-  const start = useCallback(() => {
+  const start = useCallback(async () => {
     dispatchState({ type: "SET_ERROR", payload: null });
-    dispatchEvent({ type: "START_CLICK" });
+    dispatchState({ type: "SET_PERMISSION_DENIED", payload: false });
+
+    if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+      dispatchState({ type: "SET_PERMISSION_DENIED", payload: true });
+      dispatchState({ type: "SET_ERROR", payload: "Microphone not available." });
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((t) => t.stop());
+      dispatchEvent({ type: "START_CLICK" });
+    } catch {
+      dispatchState({ type: "SET_PERMISSION_DENIED", payload: true });
+      dispatchState({
+        type: "SET_ERROR",
+        payload: "Microphone permission is required. Please allow mic and retry.",
+      });
+    }
   }, [dispatchEvent]);
 
   const stop = useCallback(() => {
     dispatchEvent({ type: "STOP_CLICK" });
+  }, [dispatchEvent]);
+
+  const startWithTypedFallback = useCallback(() => {
+    dispatchState({ type: "SET_ERROR", payload: null });
+    dispatchEvent({ type: "START_CLICK" });
   }, [dispatchEvent]);
 
   const dispatchSpeechResult = useCallback(
@@ -113,18 +153,6 @@ export function useConversationController(): UseConversationControllerReturn {
     },
     [dispatchEvent]
   );
-
-  const dispatchSpeechError = useCallback(() => {
-    dispatchEvent({ type: "SPEECH_ERROR" });
-  }, [dispatchEvent]);
-
-  const dispatchMicPermissionDenied = useCallback(() => {
-    dispatchEvent({ type: "MIC_PERMISSION_DENIED" });
-  }, [dispatchEvent]);
-
-  const dispatchSilenceTimeout = useCallback(() => {
-    dispatchEvent({ type: "SILENCE_TIMEOUT" });
-  }, [dispatchEvent]);
 
   const setTranscript = useCallback((text: string) => {
     dispatchState({ type: "SET_TRANSCRIPT", payload: text });
@@ -138,48 +166,112 @@ export function useConversationController(): UseConversationControllerReturn {
     dispatchState({ type: "SET_LAST_KEYWORD", payload: match });
   }, []);
 
-  const speechRef = useRef<ReturnType<typeof createSpeechRecognition> | null>(null);
-  const silenceTimerRef = useRef<ReturnType<typeof createSilenceTimer> | null>(null);
   const stateRef = useRef(state);
   stateRef.current = state;
 
+  const speechRef = useRef<ReturnType<typeof createSpeechRecognizer> | null>(null);
+  const silenceTimerRef = useRef<ReturnType<typeof createSilenceTimer> | null>(null);
+  const desiredRunningRef = useRef(false);
+  const restartCountRef = useRef(0);
+  const restartWindowStartRef = useRef(0);
+  const finalizationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const interimTextRef = useRef("");
+  const utteranceBufferRef = useRef("");
+  const restartTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const callbacksRef = useRef({
-    dispatchSpeechResult,
-    dispatchSpeechError,
-    dispatchMicPermissionDenied,
     setTranscript,
     setError,
     setLastKeywordMatch,
-    dispatchSilenceTimeout,
-    resetSilenceTimer: () => silenceTimerRef.current?.reset(),
-    dispatchStop: () => {
-      const result = conversationReducer(stateRef.current.conversationState, { type: "STOP_CLICK" });
-      dispatchState({ type: "REDUCER_RESULT", result });
-    },
+    dispatchSpeechResult,
+    dispatchEvent,
+    dispatchState,
   });
   callbacksRef.current = {
-    dispatchSpeechResult,
-    dispatchSpeechError,
-    dispatchMicPermissionDenied,
     setTranscript,
     setError,
     setLastKeywordMatch,
-    dispatchSilenceTimeout,
-    resetSilenceTimer: () => silenceTimerRef.current?.reset(),
-    dispatchStop: () => {
-      const result = conversationReducer(stateRef.current.conversationState, { type: "STOP_CLICK" });
-      dispatchState({ type: "REDUCER_RESULT", result });
-    },
+    dispatchSpeechResult,
+    dispatchEvent,
+    dispatchState,
   };
+
+  const clearFinalizationTimer = useCallback(() => {
+    if (finalizationTimerRef.current !== null) {
+      clearTimeout(finalizationTimerRef.current);
+      finalizationTimerRef.current = null;
+    }
+  }, []);
+
+  const useOpenAIAnalysis =
+    typeof process !== "undefined" &&
+    process.env.NEXT_PUBLIC_USE_OPENAI_ANALYSIS === "true";
+
+  const commitUtterance = useCallback((fullText: string) => {
+    const t = fullText.trim();
+    if (!t) return;
+    if (finalizationTimerRef.current !== null) {
+      clearTimeout(finalizationTimerRef.current);
+      finalizationTimerRef.current = null;
+    }
+    interimTextRef.current = "";
+    utteranceBufferRef.current = "";
+    speechRef.current?.stop();
+
+    const applyFallback = () => {
+      callbacksRef.current.dispatchState({ type: "SET_RESPONSE_SUMMARY", payload: null });
+      const result = analyzeUserInput(t);
+      callbacksRef.current.setLastKeywordMatch(result.intent);
+      callbacksRef.current.dispatchEvent({ type: "SPEECH_RESULT", text: t });
+    };
+
+    if (!useOpenAIAnalysis) {
+      applyFallback();
+      return;
+    }
+
+    fetch("/api/analyze-speech", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: t }),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("Analysis failed");
+        return res.json();
+      })
+      .then((data: { summary?: string; clip?: string }) => {
+        const summary = typeof data.summary === "string" ? data.summary : null;
+        const clip =
+          typeof data.clip === "string" &&
+          ["goodbye", "easter_egg", "weather", "general_response", "fallback"].includes(data.clip)
+            ? data.clip
+            : undefined;
+        callbacksRef.current.dispatchState({ type: "SET_RESPONSE_SUMMARY", payload: summary });
+        callbacksRef.current.setLastKeywordMatch(clip ?? "general");
+        callbacksRef.current.dispatchEvent({
+          type: "SPEECH_RESULT",
+          text: t,
+          clip: clip as ClipId | undefined,
+        });
+      })
+      .catch(() => {
+        applyFallback();
+      });
+  }, [useOpenAIAnalysis]);
+
+  useEffect(() => {
+    dispatchState({ type: "SET_SPEECH_SUPPORTED", payload: isSpeechRecognitionSupported() });
+  }, []);
 
   useEffect(() => {
     if (!silenceTimerRef.current) {
       silenceTimerRef.current = createSilenceTimer({
         onSilence(secondSilence) {
           if (secondSilence) {
-            callbacksRef.current.dispatchStop();
+            const result = conversationReducer(stateRef.current.conversationState, { type: "STOP_CLICK" });
+            callbacksRef.current.dispatchState({ type: "REDUCER_RESULT", result });
           } else {
-            callbacksRef.current.dispatchSilenceTimeout();
+            callbacksRef.current.dispatchEvent({ type: "SILENCE_TIMEOUT" });
           }
         },
       });
@@ -188,43 +280,119 @@ export function useConversationController(): UseConversationControllerReturn {
 
   useEffect(() => {
     if (!speechRef.current) {
-      speechRef.current = createSpeechRecognition({
-        onResult(text, isFinal) {
+      speechRef.current = createSpeechRecognizer({
+        onInterim(text) {
+          interimTextRef.current = text;
           callbacksRef.current.setTranscript(text);
-          if (!isFinal) {
-            callbacksRef.current.resetSilenceTimer();
-          }
-          if (isFinal && text.trim()) {
-            callbacksRef.current.setLastKeywordMatch(textToResponseClip(text));
-            callbacksRef.current.dispatchSpeechResult(text);
-          }
+          silenceTimerRef.current?.reset();
+          clearFinalizationTimer();
+          finalizationTimerRef.current = setTimeout(() => {
+            finalizationTimerRef.current = null;
+            const buffer = utteranceBufferRef.current;
+            const interim = interimTextRef.current;
+            const full = (buffer + (buffer && interim ? " " : "") + interim).trim();
+            if (full) commitUtterance(full);
+          }, FINALIZATION_MS);
+        },
+        onFinal(segment) {
+          const buffer = utteranceBufferRef.current;
+          utteranceBufferRef.current = (buffer + (buffer ? " " : "") + segment).trim();
+          const full = utteranceBufferRef.current;
+          if (full) commitUtterance(full);
         },
         onError(message) {
-          callbacksRef.current.setError(message);
-          if (message.includes("permission denied")) {
-            callbacksRef.current.dispatchMicPermissionDenied();
-          } else {
-            callbacksRef.current.dispatchSpeechError();
+          speechRef.current?.stop();
+          clearFinalizationTimer();
+          if (message.includes("permission denied") || message.includes("not-allowed")) {
+            callbacksRef.current.dispatchState({ type: "SET_PERMISSION_DENIED", payload: true });
+            callbacksRef.current.setError(message);
+            desiredRunningRef.current = false;
+            return;
           }
+          if (message.includes("No speech") || message.includes("no-speech")) {
+            callbacksRef.current.setError(null);
+            callbacksRef.current.dispatchEvent({ type: "SPEECH_ERROR" });
+            if (desiredRunningRef.current && stateRef.current.conversationState === "LISTENING") {
+              const now = Date.now();
+              if (now - restartWindowStartRef.current < RESTART_WINDOW_MS && restartCountRef.current < RESTART_BUDGET_MAX) {
+                restartCountRef.current += 1;
+                restartTimeoutRef.current = setTimeout(() => {
+                  restartTimeoutRef.current = null;
+                  speechRef.current?.start();
+                }, RESTART_DELAY_MS);
+              }
+            }
+            return;
+          }
+          if (message.includes("network") || message.includes("Network")) {
+            callbacksRef.current.setError("Speech service issue. Retrying…");
+            let attempt = 0;
+            const tryAgain = () => {
+              if (stateRef.current.conversationState !== "LISTENING" || !desiredRunningRef.current) return;
+              attempt += 1;
+              if (attempt > NETWORK_RETRY_DELAYS.length) {
+                callbacksRef.current.setError("Speech service unavailable. Use typed input.");
+                callbacksRef.current.dispatchEvent({ type: "SPEECH_ERROR" });
+                return;
+              }
+              const delay = NETWORK_RETRY_DELAYS[attempt - 1] ?? 2000;
+              setTimeout(() => {
+                speechRef.current?.start();
+              }, delay);
+            };
+            setTimeout(tryAgain, NETWORK_RETRY_DELAYS[0]);
+            return;
+          }
+          callbacksRef.current.setError(message);
+          callbacksRef.current.dispatchEvent({ type: "SPEECH_ERROR" });
         },
+        onStart() {},
         onEnd() {
-          // If still in LISTENING, browser ended recognition; could restart with backoff (stretch).
+          if (!desiredRunningRef.current || stateRef.current.conversationState !== "LISTENING") return;
+          const now = Date.now();
+          if (now - restartWindowStartRef.current > RESTART_WINDOW_MS) {
+            restartWindowStartRef.current = now;
+            restartCountRef.current = 0;
+          }
+          if (restartCountRef.current < RESTART_BUDGET_MAX) {
+            restartCountRef.current += 1;
+            restartTimeoutRef.current = setTimeout(() => {
+              restartTimeoutRef.current = null;
+              if (desiredRunningRef.current && stateRef.current.conversationState === "LISTENING") {
+                speechRef.current?.start();
+              }
+            }, RESTART_DELAY_MS);
+          } else {
+            callbacksRef.current.setError("Speech stopped unexpectedly. Try again or use typed input.");
+          }
         },
       });
     }
-    const speech = speechRef.current;
-    const silenceTimer = silenceTimerRef.current;
-    if (state.conversationState === "LISTENING") {
-      speech.start();
-      silenceTimer?.start();
-    } else {
-      speech.stop();
-      silenceTimer?.stop();
+  }, [commitUtterance]);
+
+  const onClipReady = useCallback((clipId: ClipId) => {
+    if (clipId !== "listening") return;
+    if (stateRef.current.conversationState !== "LISTENING") return;
+    if (stateRef.current.permissionDenied) return;
+    if (!speechRef.current?.isSupported()) return;
+    desiredRunningRef.current = true;
+    restartWindowStartRef.current = Date.now();
+    restartCountRef.current = 0;
+    speechRef.current.start();
+    silenceTimerRef.current?.start();
+  }, []);
+
+  useEffect(() => {
+    if (state.conversationState !== "LISTENING") {
+      desiredRunningRef.current = false;
+      utteranceBufferRef.current = "";
+      if (restartTimeoutRef.current !== null) {
+        clearTimeout(restartTimeoutRef.current);
+        restartTimeoutRef.current = null;
+      }
+      speechRef.current?.abort();
+      silenceTimerRef.current?.stop();
     }
-    return () => {
-      speech.stop();
-      silenceTimer?.stop();
-    };
   }, [state.conversationState]);
 
   const uiState: ConversationUIState = {
@@ -234,16 +402,17 @@ export function useConversationController(): UseConversationControllerReturn {
     transcript: state.transcript,
     lastKeywordMatch: state.lastKeywordMatch,
     error: state.error,
+    permissionDenied: state.permissionDenied,
+    speechSupported: state.speechSupported,
+    responseSummary: state.responseSummary ?? null,
   };
 
   return {
     uiState,
-    actions: { start, stop },
+    actions: { start, stop, startWithTypedFallback },
     dispatchVideoEnded,
+    onClipReady,
     dispatchSpeechResult,
-    dispatchSpeechError,
-    dispatchMicPermissionDenied,
-    dispatchSilenceTimeout,
     setTranscript,
     setError,
     setLastKeywordMatch,

@@ -36,6 +36,8 @@ export interface VideoStageProps {
   isLooping: boolean;
   transitionKey?: string;
   onLoadError?: (clip: ClipId, error: unknown) => void;
+  /** Called when a clip is swapped in and play() has resolved. Use to start speech when listening clip is ready. */
+  onClipReady?: (clipId: ClipId) => void;
 }
 
 export function VideoStage({
@@ -44,6 +46,7 @@ export function VideoStage({
   isLooping,
   transitionKey = "",
   onLoadError,
+  onClipReady,
 }: VideoStageProps) {
   const activeRef = useRef<HTMLVideoElement>(null);
   const standbyRef = useRef<HTMLVideoElement>(null);
@@ -92,13 +95,14 @@ export function VideoStage({
           standby.currentTime = 0;
         }
         displayedClipRef.current = clip;
+        onClipReady?.(clip);
       } catch (err) {
         onLoadError?.(clip, err);
       } finally {
         isSwitchingRef.current = false;
       }
     },
-    [onLoadError, visible, isLooping]
+    [onLoadError, onClipReady, visible, isLooping]
   );
 
   useEffect(() => {
@@ -135,7 +139,7 @@ export function VideoStage({
     active.src = src;
     active.loop = isLooping;
     displayedClipRef.current = currentClip;
-    active.play().catch(() => {});
+    active.play().then(() => onClipReady?.(currentClip)).catch(() => {});
   }, []);
 
   return (

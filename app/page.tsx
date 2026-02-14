@@ -5,21 +5,23 @@ import { Controls } from "@/components/Controls/Controls";
 import { DebugPanel } from "@/components/DebugPanel/DebugPanel";
 import type { ClipId } from "@/domain/conversation/types";
 import { useConversationController } from "@/hooks/useConversationController";
-import { useRequestMicOnLoad } from "@/hooks/useRequestMicOnLoad";
 import { getClipSrc } from "@/lib/video/clips";
 
 export default function Home() {
-  useRequestMicOnLoad();
   const {
     uiState,
     actions,
     dispatchVideoEnded,
+    onClipReady,
     setError,
+    dispatchSpeechResult,
   } = useConversationController();
 
   const handleVideoLoadError = (clip: ClipId, _err: unknown) => {
     setError(`Missing or failed to load video: ${getClipSrc(clip)}`);
   };
+
+  const showTypedFallback = uiState.permissionDenied || uiState.speechSupported === false;
 
   return (
     <div className="min-h-screen flex flex-col bg-zinc-950 text-zinc-100">
@@ -28,6 +30,15 @@ export default function Home() {
       </header>
 
       <main className="flex-1 container max-w-2xl mx-auto p-4 flex flex-col gap-4">
+        {uiState.speechSupported === false && (
+          <div
+            role="alert"
+            className="rounded-lg bg-amber-900/30 border border-amber-700 text-amber-200 px-3 py-2 text-sm"
+          >
+            Speech recognition not supported in this browser. Use Chrome/Edge.
+          </div>
+        )}
+
         {uiState.error && (
           <div
             role="alert"
@@ -53,6 +64,7 @@ export default function Home() {
             isLooping={uiState.isLooping}
             transitionKey={uiState.state}
             onLoadError={handleVideoLoadError}
+            onClipReady={onClipReady}
           />
         </section>
 
@@ -60,6 +72,8 @@ export default function Home() {
           uiState={uiState}
           onStart={actions.start}
           onStop={actions.stop}
+          onStartWithTypedFallback={showTypedFallback ? actions.startWithTypedFallback : undefined}
+          onTypedSubmit={showTypedFallback ? dispatchSpeechResult : undefined}
         />
 
         <DebugPanel uiState={uiState} onSimulateVideoEnded={dispatchVideoEnded} />

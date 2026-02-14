@@ -23,6 +23,12 @@ Open [http://localhost:3000](http://localhost:3000).
 - **Preloading**: On load, `<link rel="preload" as="video">` (and optional programmatic preload) for idle, greeting, listening, response clips, goodbye, fallback, prompt.
 - **Why it works**: The UI never shows a video until it’s already buffered and producing frames, so there’s no blank frame on transition.
 
+## Optional OpenAI analysis
+
+- **Env**: Set `OPENAI_API_KEY` in `.env` for server-side analysis. Optionally set `NEXT_PUBLIC_USE_OPENAI_ANALYSIS=true` to use the API from the client (default: off).
+- **Behavior**: When enabled, user speech is sent to `POST /api/analyze-speech`. The API returns a short summary and the best-matching video clip id; that clip is played and the summary is shown in the debug panel.
+- **Fallback**: If the API is not configured, the request fails, or the client has OpenAI disabled, the app uses local keyword matching (see Speech strategy below).
+
 ## Speech strategy
 
 - **Web Speech API**: Wrapper in `lib/speech/speechRecognition.ts` (feature detect, start/stop guards, `onResult`, `onError`, `onEnd`).

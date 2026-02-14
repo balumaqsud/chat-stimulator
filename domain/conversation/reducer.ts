@@ -4,7 +4,7 @@ import type {
   ReducerResult,
   ClipId,
 } from "./types";
-import { textToResponseClip, isGoodbyeIntent } from "./keywords";
+import { analyzeUserInput, isGoodbyeResult } from "./analyze";
 
 /**
  * State → default clip for that state (looping where applicable).
@@ -76,9 +76,11 @@ export function conversationReducer(
       if (state !== "LISTENING") {
         return { state, ...getDefaultClipForState(state) };
       }
-      const text = event.text;
-      const clip = textToResponseClip(text);
-      if (isGoodbyeIntent(text)) {
+      const clip =
+        event.clip != null
+          ? event.clip
+          : analyzeUserInput(event.text).clip;
+      if (clip === "goodbye") {
         return {
           state: "GOODBYE",
           clip: "goodbye",

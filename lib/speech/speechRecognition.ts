@@ -1,6 +1,7 @@
 /**
- * Wrapper around Web Speech API (SpeechRecognition).
- * Handles feature detection, start/stop guards, and event exposure.
+ * Thin wrapper around Web Speech API (SpeechRecognition).
+ * Handles feature detection, start/stop/abort guards, and normalized callbacks.
+ * No conversation logic; controller decides when to start/stop.
  */
 
 type SpeechRecognitionCtor = new () => {
@@ -9,6 +10,7 @@ type SpeechRecognitionCtor = new () => {
   lang: string;
   start: () => void;
   stop: () => void;
+  abort?: () => void;
   onresult: ((event: { results: { length: number; [i: number]: { 0: { transcript: string }; isFinal: boolean } } }) => void) | null;
   onerror: ((event: { error: string }) => void) | null;
   onend: (() => void) | null;
@@ -23,26 +25,39 @@ export function isSpeechRecognitionSupported(): boolean {
   return !!SpeechRecognitionAPI;
 }
 
-export interface SpeechRecognitionCallbacks {
-  onResult: (text: string, isFinal: boolean) => void;
+export interface SpeechRecognizerCallbacks {
+  onInterim: (text: string) => void;
+  onFinal: (text: string) => void;
   onError: (error: string) => void;
-  onEnd: () => void;
+  onStart?: () => void;
+  onEnd?: () => void;
 }
 
-export interface SpeechRecognitionWrapper {
+export interface SpeechRecognizer {
   start: () => void;
   stop: () => void;
+  abort: () => void;
   isSupported: () => boolean;
+  setLang: (lang: string) => void;
 }
 
-export function createSpeechRecognition(
-  callbacks: SpeechRecognitionCallbacks
-): SpeechRecognitionWrapper {
+const DEFAULT_LANG = "en-US";
+
+export function createSpeechRecognizer(
+  callbacks: SpeechRecognizerCallbacks
+): SpeechRecognizer {
   let recognition: InstanceType<SpeechRecognitionCtor> | null = null;
   let started = false;
+  let aborted = false;
+  let lang = DEFAULT_LANG;
 
   function isSupported(): boolean {
     return isSpeechRecognitionSupported();
+  }
+
+  function setLang(newLang: string): void {
+    lang = newLang;
+    if (recognition) recognition.lang = lang;
   }
 
   function start(): void {
@@ -52,18 +67,22 @@ export function createSpeechRecognition(
     }
     if (started) return;
 
+    aborted = false;
     try {
       recognition = new SpeechRecognitionAPI();
       recognition.continuous = true;
       recognition.interimResults = true;
-      recognition.lang = "en-US";
+      recognition.lang = lang;
 
       recognition.onresult = (event: { results: { length: number; [i: number]: { 0: { transcript: string }; isFinal: boolean } } }) => {
         const last = event.results[event.results.length - 1];
         if (!last) return;
         const transcript = (last[0] as { transcript?: string } | undefined)?.transcript ?? "";
-        const isFinal = last.isFinal;
-        callbacks.onResult(transcript, isFinal);
+        if (last.isFinal) {
+          callbacks.onFinal(transcript);
+        } else {
+          callbacks.onInterim(transcript);
+        }
       };
 
       recognition.onerror = (event: { error: string }) => {
@@ -78,11 +97,12 @@ export function createSpeechRecognition(
 
       recognition.onend = () => {
         started = false;
-        callbacks.onEnd();
+        callbacks.onEnd?.();
       };
 
       recognition.start();
       started = true;
+      callbacks.onStart?.();
     } catch (err) {
       started = false;
       callbacks.onError(
@@ -101,5 +121,20 @@ export function createSpeechRecognition(
     started = false;
   }
 
-  return { start, stop, isSupported };
+  function abort(): void {
+    aborted = true;
+    if (!recognition || !started) return;
+    try {
+      if (typeof recognition.abort === "function") {
+        recognition.abort();
+      } else {
+        recognition.stop();
+      }
+    } catch {
+      // ignore
+    }
+    started = false;
+  }
+
+  return { start, stop, abort, isSupported, setLang };
 }

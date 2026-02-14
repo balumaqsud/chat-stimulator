@@ -41,13 +41,19 @@ export function DebugPanel({ uiState, onSimulateVideoEnded }: DebugPanelProps) {
           <dd>{uiState.state}</dd>
         </div>
         <div>
-          <dt className="text-zinc-500">Clip</dt>
+          <dt className="text-zinc-500">Response clip</dt>
           <dd>{uiState.currentClip}</dd>
         </div>
         <div>
-          <dt className="text-zinc-500">Last keyword</dt>
+          <dt className="text-zinc-500">Last intent</dt>
           <dd>{uiState.lastKeywordMatch ?? "—"}</dd>
         </div>
+        {uiState.responseSummary != null && uiState.responseSummary !== "" && (
+          <div>
+            <dt className="text-zinc-500">Summary</dt>
+            <dd className="break-words">{uiState.responseSummary}</dd>
+          </div>
+        )}
         {uiState.error && (
           <div>
             <dt className="text-zinc-500">Error</dt>
