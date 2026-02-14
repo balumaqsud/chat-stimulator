@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { MicIndicator } from "@/components/MicIndicator/MicIndicator";
 import { Transcript } from "@/components/Transcript/Transcript";
 import type { ConversationUIState } from "@/domain/conversation/types";
@@ -14,6 +15,11 @@ export interface ControlsProps {
 export function Controls({ uiState, onStart, onStop }: ControlsProps) {
   const isIdle = uiState.state === "IDLE";
   const isListening = uiState.state === "LISTENING";
+  // Resolve only on client to avoid server/client mismatch (hydration)
+  const [supported, setSupported] = useState<boolean | null>(null);
+  useEffect(() => {
+    setSupported(isSpeechRecognitionSupported());
+  }, []);
 
   return (
     <div className="flex flex-col gap-3">
@@ -39,7 +45,7 @@ export function Controls({ uiState, onStart, onStop }: ControlsProps) {
         <MicIndicator
           isListening={isListening}
           error={uiState.error}
-          supported={isSpeechRecognitionSupported()}
+          supported={supported}
         />
       </div>
       <Transcript transcript={uiState.transcript} />

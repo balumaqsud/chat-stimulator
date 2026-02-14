@@ -136,14 +136,12 @@ export function VideoStage({
         ref={activeRef}
         className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-200 ${visible === "active" ? "opacity-100" : "opacity-0"}`}
         playsInline
-        muted
         preload="auto"
       />
       <video
         ref={standbyRef}
         className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-200 ${visible === "standby" ? "opacity-100" : "opacity-0"}`}
         playsInline
-        muted
         preload="auto"
       />
     </div>

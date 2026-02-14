@@ -1,0 +1,15 @@
+{"hypothesisId":"H2","location":"VideoStage.tsx:initialLoad","message":"Video muted state on initial play","data":{"muted":false,"volume":1},"timestamp":1771076618681}
+{"hypothesisId":"H1","location":"Controls.tsx:render","message":"MicIndicator supported (client-only)","data":{"supported":true,"hasWindow":true},"timestamp":1771076618683}
+{"hypothesisId":"H1","location":"Controls.tsx:render","message":"MicIndicator supported (client-only)","data":{"supported":true,"hasWindow":true},"timestamp":1771076618683}
+{"hypothesisId":"H1","location":"Controls.tsx:render","message":"MicIndicator supported (client-only)","data":{"supported":true,"hasWindow":true},"timestamp":1771076618759}
+{"hypothesisId":"H1","location":"Controls.tsx:render","message":"MicIndicator supported (client-only)","data":{"supported":true,"hasWindow":true},"timestamp":1771076618759}
+{"hypothesisId":"H2","location":"VideoStage.tsx:initialLoad","message":"Video muted state on initial play","data":{"muted":false,"volume":1},"timestamp":1771076636501}
+{"hypothesisId":"H1","location":"Controls.tsx:render","message":"MicIndicator supported (client-only)","data":{"supported":true,"hasWindow":true},"timestamp":1771076636503}
+{"hypothesisId":"H1","location":"Controls.tsx:render","message":"MicIndicator supported (client-only)","data":{"supported":true,"hasWindow":true},"timestamp":1771076636503}
+{"hypothesisId":"H1","location":"Controls.tsx:render","message":"MicIndicator supported (client-only)","data":{"supported":true,"hasWindow":true},"timestamp":1771076636572}
+{"hypothesisId":"H1","location":"Controls.tsx:render","message":"MicIndicator supported (client-only)","data":{"supported":true,"hasWindow":true},"timestamp":1771076636572}
+{"hypothesisId":"H2","location":"VideoStage.tsx:initialLoad","message":"Video muted state on initial play","data":{"muted":false,"volume":1},"timestamp":1771076642848}
+{"hypothesisId":"H1","location":"Controls.tsx:render","message":"MicIndicator supported (client-only)","data":{"supported":true,"hasWindow":true},"timestamp":1771076642849}
+{"hypothesisId":"H1","location":"Controls.tsx:render","message":"MicIndicator supported (client-only)","data":{"supported":true,"hasWindow":true},"timestamp":1771076642849}
+{"hypothesisId":"H1","location":"Controls.tsx:render","message":"MicIndicator supported (client-only)","data":{"supported":true,"hasWindow":true},"timestamp":1771076642908}
+{"hypothesisId":"H1","location":"Controls.tsx:render","message":"MicIndicator supported (client-only)","data":{"supported":true,"hasWindow":true},"timestamp":1771076642909}

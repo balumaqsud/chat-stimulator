@@ -3,11 +3,12 @@
 export interface MicIndicatorProps {
   isListening: boolean;
   error: string | null;
-  supported: boolean;
+  /** null = not yet known (SSR / initial client render); treat as "off" for consistent hydration */
+  supported: boolean | null;
 }
 
 export function MicIndicator({ isListening, error, supported }: MicIndicatorProps) {
-  if (!supported) {
+  if (supported === false) {
     return (
       <span className="text-amber-500 text-sm" title="Use Chrome or Edge for speech">
         Mic: unsupported
